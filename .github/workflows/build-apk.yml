@@ -78,6 +78,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
 
+      # Diagnostic: confirm the decoded keystore is intact and the
+      # store password opens it. Prints only the file hash and the
+      # keytool result — never the secret values themselves.
+      - name: Verify keystore
+        run: |
+          sha256sum android/app/upload-keystore.jks
+          keytool -list -keystore android/app/upload-keystore.jks -storepass "$KEYSTORE_PASSWORD"
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+
       - name: Build release APK
         run: flutter build apk --release
 
