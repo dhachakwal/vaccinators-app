@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'config.dart';
@@ -190,6 +192,11 @@ class _RootScreenState extends State<RootScreen> {
   StorageService? _storage;
   Vaccinator? _user;
   int _tab = 0;
+  // v1.0.1 (open lag): tabs the user already visited. Only the
+  // active tab — plus visited ones, so their state survives — is
+  // in the widget tree. Building all five screens eagerly on
+  // every launch cost the first frame.
+  final Set<int> _visitedTabs = {0};
   bool _ready = false;
   AppUpdate? _pendingUpdate;
 
@@ -205,41 +212,36 @@ class _RootScreenState extends State<RootScreen> {
   Future<void> _boot() async {
     final storage = await StorageService.init();
     _sync = SyncService(_api, storage);
-    // 1. Update check FIRST, before login/home and before sync.
-    //    A null result means the check itself failed (no net / site
-    //    down) — the app must still open (server-down exception).
-    final update = await UpdateService().check();
     if (!mounted) return;
-    if (update != null && update.isForced) {
-      // FORCED update: block everything. No login, no home, no
-      // sync — the update screen is the whole app until the new
-      // APK is installed (login + queue survive in storage).
-      setState(() {
-        _storage = storage;
-        _user = storage.login;
-        _pendingUpdate = update;
-        _ready = true;
-      });
-      return;
-    }
-    // 2. No forced update: sync the offline queue, then open.
-    _sync.syncAll();
+    // v1.0.1 (open lag): show the app as soon as local storage is
+    // ready — do NOT wait for the network update check first. On
+    // slow field data the check held the app on a spinner for up
+    // to 15 s, which felt like the app was frozen on open.
     setState(() {
       _storage = storage;
       _user = storage.login;
       _ready = true;
     });
-    if (update != null && update.isNewer && mounted) {
+    // 1. Offline-queue sync runs in the background.
+    unawaited(_sync.syncAll());
+    // 2. Update check runs in the background too. A FORCED update
+    // still blocks the app — it just takes over once the check
+    // returns, instead of holding the launch. A failed check (no
+    // net / site down) opens the app normally with a small note
+    // (server-down exception, unchanged).
+    final update = await UpdateService().check();
+    if (!mounted) return;
+    if (update != null && update.isForced) {
+      setState(() => _pendingUpdate = update);
+      return;
+    }
+    if (update != null && update.isNewer) {
       // Optional update only (isForced is false here): the
       // vaccinator may press "Later" and keep using this version.
       _showOptionalUpdateDialog(update);
-    } else if (update == null && mounted) {
-      // Server-down exception: open normally, just say so once.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(lang.t('updateCheckFailed'))));
-      });
+    } else if (update == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(lang.t('updateCheckFailed'))));
     }
   }
 
@@ -279,6 +281,62 @@ class _RootScreenState extends State<RootScreen> {
       // forced update that appeared meanwhile still blocks.
       if (mounted) _boot();
     });
+  }
+
+  void _goToTab(int t) => setState(() {
+        _tab = t;
+        _visitedTabs.add(t);
+      });
+
+  /// Builds one tab only when it is visited; unvisited tabs are a
+  /// cheap placeholder, so they cost nothing on launch. Once a tab
+  /// is built it stays in the IndexedStack, so its state survives
+  /// tab switches.
+  Widget _buildTab(int i) {
+    if (!_visitedTabs.contains(i)) return const SizedBox.shrink();
+    final user = _user;
+    final storage = _storage;
+    if (user == null || storage == null) return const SizedBox.shrink();
+    switch (i) {
+      case 0:
+        return HomeScreen(
+          user: user,
+          api: _api,
+          storage: storage,
+          pendingCount: storage.queue.length,
+          lang: lang,
+          onGo: _goToTab,
+        );
+      case 1:
+        return LocationScreen(
+          user: user,
+          api: _api,
+          storage: storage,
+          sync: _sync,
+          location: LocationService(),
+          lang: lang,
+        );
+      case 2:
+        return ReportScreen(user: user, sync: _sync, lang: lang);
+      case 3:
+        return LeaveScreen(
+            user: user,
+            api: _api,
+            storage: storage,
+            sync: _sync,
+            lang: lang);
+      case 4:
+        return ProfileScreen(
+          user: user,
+          storage: storage,
+          sync: _sync,
+          lang: lang,
+          language: widget.language,
+          onLogout: _logout,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   // Admin = the district user. v1 rule: username "admin" — replace
@@ -329,48 +387,23 @@ class _RootScreenState extends State<RootScreen> {
         onLoggedIn: () => setState(() => _user = _storage!.login),
       );
     }
-    final locationService = LocationService();
-    final screens = <Widget>[
-      HomeScreen(
-        user: user,
-        api: _api,
-        storage: _storage!,
-        pendingCount: _storage!.queue.length,
-        lang: lang,
-        onGo: (t) => setState(() => _tab = t),
-      ),
-      LocationScreen(
-        user: user,
-        api: _api,
-        storage: _storage!,
-        sync: _sync,
-        location: locationService,
-        lang: lang,
-      ),
-      ReportScreen(user: user, sync: _sync, lang: lang),
-      LeaveScreen(
-          user: user,
-          api: _api,
-          storage: _storage!,
-          sync: _sync,
-          lang: lang),
-      ProfileScreen(
-        user: user,
-        storage: _storage!,
-        sync: _sync,
-        lang: lang,
-        language: widget.language,
-        onLogout: _logout,
-      ),
-    ];
     return Scaffold(
-      body: screens[_tab],
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          _buildTab(0),
+          _buildTab(1),
+          _buildTab(2),
+          _buildTab(3),
+          _buildTab(4),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _tab,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppConfig.darkGreen,
         unselectedItemColor: Colors.grey,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: _goToTab,
         items: [
           BottomNavigationBarItem(
               icon: const Icon(Icons.home), label: lang.t('navHome')),
