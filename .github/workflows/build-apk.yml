@@ -58,6 +58,26 @@ jobs:
       # - name: Test
       #   run: flutter test
 
+      # Release signing: decode the upload keystore from the
+      # KEYSTORE_BASE64 secret and write key.properties. The keystore
+      # lives ONLY in GitHub Secrets + the Muse backup — never in the repo.
+      # Without this, every runner signs with a fresh debug key and
+      # Android refuses in-place updates (v1.0.0 -> v1.0.1 failure).
+      - name: Set up release signing
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+
       - name: Build release APK
         run: flutter build apk --release
 
