@@ -27,11 +27,19 @@ class SyncService {
   }
 
   /// Try to flush the whole queue. Returns (sent, stillPending).
+  /// v1.0.1: items whose type has no server handler yet
+  /// (dailyReport / zeroEntry / mockLocation) are SKIPPED — never
+  /// posted, never breaking the loop. They stay queued for a later
+  /// app version, while location/leave behind them can still sync.
+  /// (Before this fix, syncAll posted them anyway, verify always
+  /// failed, and the loop broke — one queued daily report blocked
+  /// every location/leave behind it, so "sync" looked dead.)
   Future<(int, int)> syncAll() async {
     if (!await hasNet) return (0, storage.queue.length);
     var sent = 0;
     for (final item in List.of(storage.queue)) {
       if (item.attempts >= 5) continue;
+      if (!verifiableTypes.contains(item.type)) continue;
       final ok = await api.submitAndVerify(item.payload);
       if (ok) {
         await storage.removeFromQueue(item.id);
