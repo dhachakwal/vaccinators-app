@@ -42,8 +42,10 @@ class LocationService {
         return null;
       }
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
       );
     } catch (_) {
       return null;
@@ -114,8 +116,10 @@ void _backgroundDispatcher() {
       final username = (inputData?['username'] ?? '').toString();
       if (username.isEmpty) return Future.value(true);
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 20),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
       );
       // Background: a mocked fix is NEVER sent as a location.
       // Report the attempt instead, then stop — no retry, no row.
