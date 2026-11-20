@@ -1,0 +1,90 @@
+# Vaccinators App v1 — FREE release APK build (GitHub Actions)
+# Runs on every push to main and on manual dispatch.
+# No secrets, no signing keys, no paid service.
+# Output: release APK as a workflow artifact + a GitHub Release.
+# The APK is NOT on the EPI site until a human copies it there
+# (see README.md Step 4) and updates version.json.
+name: Build Vaccinators APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter_app/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (needed by Android Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter (stable, free)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: stable
+          cache: true
+
+      - name: Check Flutter + Dart
+        run: flutter --version && flutter doctor -v
+
+      - name: Make gradlew executable (web upload loses the +x bit)
+        run: chmod +x android/gradlew
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Analyse (fail on errors, not on infos)
+        run: flutter analyze --no-fatal-infos
+
+      # Tests: none written for v1 yet. This step is a placeholder that
+      # passes when there are no tests; add flutter_test files to enable it.
+      # - name: Test
+      #   run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Rename APK with version
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | awk '{print $2}' | tr '+' '-')
+          cp build/app/outputs/flutter-apk/app-release.apk "vaccinators-app-v${VER}.apk"
+          ls -lh *.apk build/app/outputs/flutter-apk/
+
+      - name: Upload APK artifact (kept 30 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaccinators-app-v1-apk
+          path: flutter_app/vaccinators-app-*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release (tag = version from pubspec.yaml)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Vaccinators App v1 — build ${{ github.run_number }}
+          body: |
+            Free release APK built by GitHub Actions.
+            Install: download the APK below, allow "Install unknown apps" for Chrome, tap Install.
+            This release is NOT yet on the EPI site — copy the APK to dhachakwal/EPI-Chakwal as vaccinators-app.apk and update version.json (see README.md Step 4).
+          files: flutter_app/vaccinators-app-*.apk
+          draft: false
+          prerelease: false
