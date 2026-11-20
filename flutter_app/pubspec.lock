@@ -272,10 +272,11 @@ packages:
   flutter_webrtc:
     dependency: "direct main"
     description:
-      name: flutter_webrtc
-      sha256: b98ef03376401e54ff87fc78907b38e562b15ca8424aba589c263eddc3c1ecf9
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: b73440d71512176d91c8a4f15f7690e779946dc5
+      resolved-ref: b73440d71512176d91c8a4f15f7690e779946dc5
+      url: "https://github.com/dhachakwal/flutter-webrtc.git"
+    source: git
     version: "1.6.3"
   geolocator:
     dependency: "direct main"
