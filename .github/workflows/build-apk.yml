@@ -58,14 +58,15 @@ jobs:
       # - name: Test
       #   run: flutter test
 
-      # Release signing: decode the upload keystore from the
-      # KEYSTORE_BASE64 secret and write key.properties. The keystore
+      # Release signing: the keystore travels as FOUR chunk secrets
+      # (KEYSTORE_B64_A..D) because a single 3,716-char paste kept
+      # getting corrupted in transit (run #41: decoded sha256 never
+      # matched). The Verify step below prints each chunk's sha256 so
+      # a bad chunk is pinpointed instead of guessed. The keystore
       # lives ONLY in GitHub Secrets + the Muse backup — never in the repo.
-      # Without this, every runner signs with a fresh debug key and
-      # Android refuses in-place updates (v1.0.0 -> v1.0.1 failure).
       - name: Set up release signing
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          printf '%s' "$KEYSTORE_B64_A$KEYSTORE_B64_B$KEYSTORE_B64_C$KEYSTORE_B64_D" | base64 -d > android/app/upload-keystore.jks
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
@@ -73,19 +74,31 @@ jobs:
           storeFile=upload-keystore.jks
           EOF
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_B64_A: ${{ secrets.KEYSTORE_B64_A }}
+          KEYSTORE_B64_B: ${{ secrets.KEYSTORE_B64_B }}
+          KEYSTORE_B64_C: ${{ secrets.KEYSTORE_B64_C }}
+          KEYSTORE_B64_D: ${{ secrets.KEYSTORE_B64_D }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
 
-      # Diagnostic: confirm the decoded keystore is intact and the
-      # store password opens it. Prints only the file hash and the
-      # keytool result — never the secret values themselves.
+      # Diagnostic: confirm each chunk landed intact (expected hashes:
+      # A 4d9f8b6b…, B 4e3ba380…, C e52751ca…, D 50d7c2df…) and the
+      # decoded keystore opens with the store password. Prints only
+      # hashes and the keytool result — never the secret values.
       - name: Verify keystore
         run: |
+          printf '%s' "$KEYSTORE_B64_A" | sha256sum
+          printf '%s' "$KEYSTORE_B64_B" | sha256sum
+          printf '%s' "$KEYSTORE_B64_C" | sha256sum
+          printf '%s' "$KEYSTORE_B64_D" | sha256sum
           sha256sum android/app/upload-keystore.jks
           keytool -list -keystore android/app/upload-keystore.jks -storepass "$KEYSTORE_PASSWORD"
         env:
+          KEYSTORE_B64_A: ${{ secrets.KEYSTORE_B64_A }}
+          KEYSTORE_B64_B: ${{ secrets.KEYSTORE_B64_B }}
+          KEYSTORE_B64_C: ${{ secrets.KEYSTORE_B64_C }}
+          KEYSTORE_B64_D: ${{ secrets.KEYSTORE_B64_D }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Build release APK
