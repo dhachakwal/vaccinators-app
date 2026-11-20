@@ -1,0 +1,19 @@
+// Root build file for the Android project.
+//
+// WHY THIS EXISTS: some older Flutter plugins (notably
+// geolocator_android 4.6.2) still read the legacy `flutter.*`
+// Gradle properties (flutter.compileSdkVersion /
+// flutter.minSdkVersion) in their own build.gradle. Flutter's
+// current Gradle plugin only defines those properties on the app
+// project, so those plugin projects fail to evaluate with
+// "Could not get unknown property 'flutter'". Defining them here
+// as extra properties makes them visible to every subproject
+// before its build script runs. Values match the app module
+// (android/app/build.gradle.kts): compileSdk 34, minSdk 21.
+allprojects {
+    ext.flutter = [
+        compileSdkVersion: 34,
+        minSdkVersion    : 21,
+        targetSdkVersion : 34
+    ]
+}
