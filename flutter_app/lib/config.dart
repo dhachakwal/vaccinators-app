@@ -8,8 +8,8 @@ class AppConfig {
 
   static const String appName = 'Vaccinators App';
   static const String district = 'EPI District Chakwal';
-  static const String versionName = '1.0.0';
-  static const int versionCode = 1;
+  static const String versionName = '1.0.1';
+  static const int versionCode = 2;
 
   // --- Existing backend (do not change) ---
   static const String masterSheetId =
@@ -116,6 +116,19 @@ class AppConfig {
     }
     return url;
   }
+
+  /// gviz read with a server-side query AND headers=0 — used by
+  /// the verify step only. headers=0 keeps the response tiny: with
+  /// headers=1 the Location tab's labels balloon to ~240 KB (a
+  /// sheet quirk — each label carries the whole column) and the
+  /// full tab is ~800 KB, while headers=0 returns empty labels and
+  /// only the matching rows (~1 KB). Rows come back positionally
+  /// (A = first selected column), and the sheet's own header row
+  /// arrives as a data row — callers must skip it.
+  static String gvizVerifyUrl(String sheetId, String sheet, String tq) =>
+      'https://docs.google.com/spreadsheets/d/$sheetId'
+      '/gviz/tq?tqx=out:json&headers=0&sheet=${Uri.encodeComponent(sheet)}'
+      '&tq=${Uri.encodeComponent(tq)}';
 
   // --- Rules (same as the web form) ---
   static const int monthlyLeaveMax = 2;
