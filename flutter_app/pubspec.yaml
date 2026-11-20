@@ -1,0 +1,97 @@
+name: vaccinators_app
+description: "EPI District Chakwal — Vaccinators App v1 (live location, daily report, zero entry, leave). Free APK, no Play Store. Languages: English and Urdu (proper Urdu script) — no Roman Urdu."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Network + storage (all free, open source)
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  connectivity_plus: ^6.0.5
+  url_launcher: ^6.3.0
+  # Forced in-app update (19 Nov 2026): download the APK to the
+  # app temp folder with progress (path_provider) and open the
+  # Android installer for it (open_filex). Both free, open source.
+  path_provider: ^2.1.2
+  open_filex: ^4.7.0
+  # Location + background (free)
+  geolocator: ^12.0.0
+  permission_handler: ^11.3.1
+  workmanager: ^0.5.2
+  image_picker: ^1.1.2
+  # Map (OpenStreetMap tiles — free, no API key)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.0
+  # V2 calling — WebRTC (free, open source). Skeleton only in v1:
+  # flutter_webrtc 1.6.3 (pub.dev, 26 Oct 2026; SDK >=3.3, so it
+  # fits this Flutter 3.24 project). Signalling (Firebase Realtime
+  # Database, Spark free plan) is NOT added yet — see
+  # lib/services/call_service.dart TODOs. Do not claim calls work
+  # until the signalling + two-phone test are done.
+  flutter_webrtc: ^1.6.3
+  # Dynamic Google Forms (user order, 19 Nov 2026): each form opens
+  # INSIDE the app in a WebView (lib/screens/forms_screen.dart).
+  # Pinned to EXACTLY 4.9.0 on purpose: 4.9.0 raised the minimum
+  # to Flutter 3.24 / Dart 3.5, which is this project (Flutter
+  # 3.24.5); 4.10.0 needs Flutter 3.27 and 4.14.x needs Flutter
+  # 3.32+/3.38+, so a caret range would resolve to a version this
+  # Flutter cannot build. When Flutter is upgraded, relax this to
+  # ^4.14.0. minSdk stays 21 — webview_flutter 4.9.0 supports it.
+  webview_flutter: 4.9.0
+  # V2 calling — Firebase Realtime Database signalling (Spark free
+  # plan). Pinned to EXACT versions on purpose, same reason as
+  # webview_flutter above: firebase_core 5.x needs Flutter >=3.27 /
+  # Dart ^3.6 and Android minSdk 24, and firebase_core 4.x needs
+  # Firebase Android BoM 34 (minSdk 23) — this project is Flutter
+  # 3.24.5 / Dart 3.5 / minSdk 21, so the 3.x line is the newest
+  # that fits. Resolved 19 Nov 2026: core 3.15.2 + database
+  # 11.3.10. When Flutter is upgraded, relax these to ^4.0.0 /
+  # ^12.0.0 and re-check minSdk. NOTE: adding these packages does
+  # NOT make calls work on its own — the Firebase project +
+  # google-services.json are still needed (see
+  # files/Calling-v2-Design.md §10). Without them the app builds
+  # and runs normally and calling honestly says "not set up yet".
+  firebase_core: 3.15.2
+  firebase_database: 11.3.10
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+  # --- Urdu font (STANDING RULE, user order 19 Nov 2026) ---
+  # Urdu text uses fontFamily 'Noori Nastaliq' (see main.dart theme).
+  # The Noori Nastaliq file itself is NOT bundled: no freely
+  # distributable (OFL / clear-licence) Noori Nastaliq file exists —
+  # "Jameel Noori Nastaleeq" downloads are personal-use only with a
+  # contested licence, so it must NOT be shipped in the APK without
+  # the user supplying their own licensed file. See
+  # assets/fonts/README.md for the one-step swap.
+  # Fallback bundled here (SIL Open Font License, Google Fonts):
+  # Noto Nastaliq Urdu renders all Urdu text until the Noori file
+  # is supplied. It is the fallback ONLY — never the final font.
+  fonts:
+    - family: Noto Nastaliq Urdu
+      fonts:
+        - asset: assets/fonts/NotoNastaliqUrdu.ttf
+  # TO ENABLE NOORI NASTALIQ (after the user supplies the file):
+  # 1. Put the file at assets/fonts/JameelNooriNastaleeq.ttf
+  #    (or NooriNastaliq.ttf — keep the name below in sync).
+  # 2. Uncomment this block:
+  #   - family: Noori Nastaliq
+  #     fonts:
+  #       - asset: assets/fonts/JameelNooriNastaleeq.ttf
+  # 3. Run `flutter pub get` and rebuild. No code change needed —
+  #    main.dart already asks for fontFamily 'Noori Nastaliq' first.
