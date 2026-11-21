@@ -7,9 +7,11 @@ import '../widgets/common.dart';
 
 /// S4 Daily Report + S5 Zero Entry (one "Report" tab, two sections).
 /// Doses by antigen with + / - steppers. Total auto-calculated.
-/// NOTE (honest): dailyReport / zeroEntry are NEW payload types —
-/// the Apps Script does not handle them yet (see GOAL.md). The app
-/// therefore queues them and says "queued", never "submitted".
+/// NOTE (v1.0.3): dailyReport / zeroEntry now verify against the
+/// DailyReport / ZeroEntry tabs (see ApiService) — but only once the
+/// Apps Script handlers are deployed (hidden_files/
+/// apps-script-report-handlers.gs, PC step). Until then the app
+/// queues them and says "queued", never "submitted".
 /// One report per day: sending again replaces today's queued report.
 /// All labels come from AppStrings (English or Urdu script).
 class ReportScreen extends StatefulWidget {
