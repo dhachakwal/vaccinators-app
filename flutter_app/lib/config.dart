@@ -8,8 +8,8 @@ class AppConfig {
 
   static const String appName = 'Vaccinators App';
   static const String district = 'EPI District Chakwal';
-  static const String versionName = '1.0.2';
-  static const int versionCode = 3;
+  static const String versionName = '1.0.3';
+  static const int versionCode = 4;
 
   // --- Existing backend (do not change) ---
   static const String masterSheetId =
