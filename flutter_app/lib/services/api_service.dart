@@ -411,6 +411,148 @@ class ApiService {
     }
   }
 
+  /// Daily-report / zero-entry verify (v1.0.3): same filtered-query
+  /// pattern as verifyLeave. The Apps Script writes one row per
+  /// vaccinator per date (sending again replaces today's row), so
+  /// matching is username + date. The Date cell may come back as
+  /// `Date(2026,10,21)` if Sheets converted the string, so the
+  /// comparison normalises through leaveDateYmd. Tabs are
+  /// DailyReport (A Timestamp, B Date, C Name, D Username) and
+  /// ZeroEntry (same layout); see hidden_files/
+  /// apps-script-report-handlers.gs for the server side.
+  Future<bool> verifyDailyReport({
+    required String name,
+    required String username,
+    required String date,
+  }) async {
+    return _verifyReport(
+      tab: 'DailyReport',
+      name: name,
+      username: username,
+      date: date,
+    );
+  }
+
+  Future<bool> verifyZeroEntry({
+    required String name,
+    required String username,
+    required String date,
+  }) async {
+    return _verifyReport(
+      tab: 'ZeroEntry',
+      name: name,
+      username: username,
+      date: date,
+    );
+  }
+
+  Future<bool> _verifyReport({
+    required String tab,
+    required String name,
+    required String username,
+    required String date,
+  }) async {
+    final key = ApiHelpers.normUserKey(username);
+    final nm = name.trim().toLowerCase();
+    for (var a = 0; a < AppConfig.verifyAttempts; a++) {
+      try {
+        final rows = await _verifyReportRows(tab, key, nm);
+        for (final r in rows) {
+          final rn = (pick(r, ['name']) ?? '').trim().toLowerCase();
+          final ru = ApiHelpers.normUserKey(pick(r, ['username']) ?? '');
+          final raw = pick(r, ['date']) ?? '';
+          if (leaveDateYmd(raw) != date) continue;
+          if ((key.isNotEmpty && ru.isNotEmpty && key == ru) ||
+              (nm.isNotEmpty && rn.isNotEmpty && nm == rn)) {
+            return true;
+          }
+        }
+      } catch (_) {}
+      await Future.delayed(AppConfig.verifyDelay);
+    }
+    return false;
+  }
+
+  /// This vaccinator's recent rows in a report tab, newest first.
+  /// Filtered server-side; falls back to the full-tab read if the
+  /// query fails or there is nothing to match on.
+  Future<List<Map<String, dynamic>>> _verifyReportRows(
+      String tab, String key, String nm) async {
+    final clause = _personClause(
+      key: key,
+      name: nm,
+      userCol: 'D',
+      nameCol: 'C',
+      userColNumeric: true,
+    );
+    if (clause.isEmpty) return readTab(tab);
+    try {
+      final tq = 'select A,B,C,D where $clause order by A desc limit 50';
+      return await readTabQueryPositional(
+          tab, tq, const ['timestamp', 'date', 'name', 'username']);
+    } catch (_) {
+      return readTab(tab);
+    }
+  }
+
+  /// Fake-location-report verify (v1.0.3): same match as
+  /// verifyLocation — exact timestamp, or timestamp within 60 s
+  /// with the same GPS pin. Tab MockLocation (A Timestamp, B Name,
+  /// C Username, F Latitude, G Longitude).
+  Future<bool> verifyMockLocation({
+    required String name,
+    required String username,
+    required String tsIso,
+    required String lat,
+    required String lng,
+  }) async {
+    final key = ApiHelpers.normUserKey(username);
+    final nm = name.trim().toLowerCase();
+    final latS = double.tryParse(lat)?.toStringAsFixed(6) ?? '';
+    final lngS = double.tryParse(lng)?.toStringAsFixed(6) ?? '';
+    final tsMs = DateTime.tryParse(tsIso)?.millisecondsSinceEpoch;
+    for (var a = 0; a < AppConfig.verifyAttempts; a++) {
+      try {
+        final rows = await _verifyMockLocationRows(key, nm);
+        for (final r in rows) {
+          if (_locationRowMatches(r,
+              key: key,
+              nm: nm,
+              tsIso: tsIso,
+              tsMs: tsMs,
+              latS: latS,
+              lngS: lngS)) {
+            return true;
+          }
+        }
+      } catch (_) {}
+      await Future.delayed(AppConfig.verifyDelay);
+    }
+    return false;
+  }
+
+  /// This vaccinator's recent MockLocation rows, newest first.
+  /// Filtered server-side; falls back to the full-tab read if the
+  /// query fails or there is nothing to match on.
+  Future<List<Map<String, dynamic>>> _verifyMockLocationRows(
+      String key, String nm) async {
+    final clause = _personClause(
+      key: key,
+      name: nm,
+      userCol: 'C',
+      nameCol: 'B',
+      userColNumeric: true,
+    );
+    if (clause.isEmpty) return readTab('MockLocation');
+    try {
+      final tq = 'select A,B,C,F,G where $clause order by A desc limit 50';
+      return await readTabQueryPositional('MockLocation', tq,
+          const ['timestamp', 'name', 'username', 'latitude', 'longitude']);
+    } catch (_) {
+      return readTab('MockLocation');
+    }
+  }
+
   /// Full submit flow for location/leave: single POST, then verify.
   /// Returns true ONLY when the row is confirmed in the sheet.
   Future<bool> submitAndVerify(Map<String, dynamic> payload) async {
@@ -433,9 +575,29 @@ class ApiService {
         leaveDate: (payload['leaveDate'] ?? '').toString(),
       );
     }
-    // New payload types (dailyReport / zeroEntry) have no
-    // verify path until the Apps Script adds them — the caller must
-    // queue them instead of claiming success. See SyncService.
+    if (type == 'dailyReport') {
+      return verifyDailyReport(
+        name: (payload['name'] ?? '').toString(),
+        username: (payload['username'] ?? '').toString(),
+        date: (payload['date'] ?? '').toString(),
+      );
+    }
+    if (type == 'zeroEntry') {
+      return verifyZeroEntry(
+        name: (payload['name'] ?? '').toString(),
+        username: (payload['username'] ?? '').toString(),
+        date: (payload['date'] ?? '').toString(),
+      );
+    }
+    if (type == 'mockLocation') {
+      return verifyMockLocation(
+        name: (payload['name'] ?? '').toString(),
+        username: (payload['username'] ?? '').toString(),
+        tsIso: (payload['timestamp'] ?? '').toString(),
+        lat: (payload['lat'] ?? '').toString(),
+        lng: (payload['lng'] ?? '').toString(),
+      );
+    }
     return false;
   }
 

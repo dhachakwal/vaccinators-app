@@ -5,19 +5,24 @@ import 'storage_service.dart';
 
 /// Sends the offline queue, ONE item at a time, in order.
 /// An item leaves the queue ONLY after verify confirms its row.
-/// New payload types (dailyReport / zeroEntry / mockLocation)
-/// cannot be verified yet — the Apps Script does not handle them —
-/// so they stay queued (max 5 attempts, then they wait for the next
-/// sync) and the UI must say "queued", never "submitted". See GOAL.md.
-/// A mockLocation report is queued the same way: the admin is told
-/// as soon as the script + tab exist; until then the report waits
-/// in the queue and the vaccinator is still blocked on the spot.
+/// v1.0.3: dailyReport / zeroEntry / mockLocation are verifiable
+/// now — the Apps Script handlers exist (see hidden_files/
+/// apps-script-report-handlers.gs) and ApiService verifies them
+/// against the DailyReport / ZeroEntry / MockLocation tabs. Until
+/// the script is deployed on the PC, verify still fails and the
+/// items stay queued honestly (never "submitted").
 class SyncService {
   final ApiService api;
   final StorageService storage;
   SyncService(this.api, this.storage);
 
-  static const Set<String> verifiableTypes = {'location', 'leave'};
+  static const Set<String> verifiableTypes = {
+    'location',
+    'leave',
+    'dailyReport',
+    'zeroEntry',
+    'mockLocation',
+  };
 
   Future<bool> get hasNet async {
     final r = await Connectivity().checkConnectivity();
@@ -27,13 +32,14 @@ class SyncService {
   }
 
   /// Try to flush the whole queue. Returns (sent, stillPending).
-  /// v1.0.1: items whose type has no server handler yet
-  /// (dailyReport / zeroEntry / mockLocation) are SKIPPED — never
-  /// posted, never breaking the loop. They stay queued for a later
-  /// app version, while location/leave behind them can still sync.
-  /// (Before this fix, syncAll posted them anyway, verify always
-  /// failed, and the loop broke — one queued daily report blocked
-  /// every location/leave behind it, so "sync" looked dead.)
+  /// v1.0.3: all five types are verifiable (location, leave,
+  /// dailyReport, zeroEntry, mockLocation). An unknown type is
+  /// still SKIPPED — never posted, never breaking the loop — so
+  /// one bad item can never block the rest of the queue again.
+  /// (Before the v1.0.1 fix, syncAll posted unverifiable types
+  /// anyway, verify always failed, and the loop broke — one queued
+  /// daily report blocked every location/leave behind it, so
+  /// "sync" looked dead.)
   Future<(int, int)> syncAll() async {
     if (!await hasNet) return (0, storage.queue.length);
     var sent = 0;
