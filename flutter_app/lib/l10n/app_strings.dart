@@ -129,17 +129,15 @@ class AppStrings {
       AppLanguage.english: 'The PIN must be 4 digits.',
       AppLanguage.urdu: 'پن 4 ہندسوں کا ہونا چاہیے۔',
     },
+    'loginWrongPin': {
+      AppLanguage.english: 'Wrong PIN. Your PIN is the last 4 digits of your username — ask the admin if you do not know it.',
+      AppLanguage.urdu: 'غلط پن۔ آپ کا پن آپ کے یوزر نیم کے آخری 4 ہندسے ہیں — اگر معلوم نہیں تو ایڈمن سے پوچھیں۔',
+    },
     'rosterEmpty': {
       AppLanguage.english:
           'The vaccinator list did not load. Check the internet and open the app again.',
       AppLanguage.urdu:
           'ویکسینیٹرز کی فہرست لوڈ نہیں ہوئی۔ انٹرنیٹ چیک کریں اور ایپ دوبارہ کھولیں۔',
-    },
-    'pinPendingNote': {
-      AppLanguage.english:
-          'The PIN still has to be confirmed by the admin — on first login any 4-digit PIN will be set.',
-      AppLanguage.urdu:
-          'پن کی تصدیق ابھی ایڈمن سے ہونا باقی ہے — پہلی لاگ ان پر کوئی بھی 4 ہندسوں والا پن سیٹ ہو جائے گا۔',
     },
 
     // --- Home ---
