@@ -1,11 +1,14 @@
 /// One row of the `All Vaccinators Profile` tab.
 /// Username is the mobile number or the OR code, exactly as in the sheet.
-/// Existing columns only — the PIN column is a proposed addition (see GOAL.md).
+/// PIN: column O ("PIN") of the profile tab, set 22 Nov 2026 — the
+/// last 4 digits of the vaccinator's username (Zain Islam: 1234,
+/// no username on file). Login checks the entered PIN against it.
 class Vaccinator {
   final String tehsil;
   final String uc;
   final String name;
   final String username;
+  final String pin;
   final double openingRemaining;
   final double availed;
 
@@ -14,6 +17,7 @@ class Vaccinator {
     required this.uc,
     required this.name,
     required this.username,
+    this.pin = '',
     this.openingRemaining = 24,
     this.availed = 0,
   });
@@ -24,11 +28,16 @@ class Vaccinator {
         double.tryParse(s(k).replaceAll(',', '')) ?? double.nan;
     final remaining = num('remaining');
     final av = num('availed');
+    // PIN cells are text (leading zeros matter: 0786, not 786).
+    // If a cell lost its zero and came back numeric, restore it.
+    final pinRaw = s('pin');
+    final pin = pinRaw.isEmpty ? '' : pinRaw.padLeft(4, '0');
     return Vaccinator(
       tehsil: s('tehsil'),
       uc: s('uc'),
       name: s('name'),
       username: ApiHelpers.normUser(s('username')),
+      pin: pin,
       openingRemaining:
           remaining.isNaN ? 24 : remaining,
       availed: av.isNaN ? 0 : av,
@@ -40,6 +49,7 @@ class Vaccinator {
         'uc': uc,
         'name': name,
         'username': username,
+        'pin': pin,
         'openingRemaining': openingRemaining,
         'availed': availed,
       };
@@ -49,6 +59,7 @@ class Vaccinator {
         uc: (j['uc'] ?? '').toString(),
         name: (j['name'] ?? '').toString(),
         username: (j['username'] ?? '').toString(),
+        pin: (j['pin'] ?? '').toString(),
         openingRemaining:
             (j['openingRemaining'] as num?)?.toDouble() ?? 24,
         availed: (j['availed'] as num?)?.toDouble() ?? 0,
