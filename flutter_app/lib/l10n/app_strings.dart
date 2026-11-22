@@ -253,6 +253,14 @@ class AppStrings {
       AppLanguage.english: 'Location received — thank you, {name}!',
       AppLanguage.urdu: 'لوکیشن مل گئی — شکریہ، {name}!',
     },
+    // Shown (Urdu only, Nastaliq font) after a verified location submit —
+    // user order 22 Nov 2026: nothing else shows below the Send button.
+    'locSubmittedToday': {
+      AppLanguage.english:
+          'آپ نے کامیابی کے ساتھ اپنی آج کی لوکیشن سبمٹ کر دی ہے',
+      AppLanguage.urdu:
+          'آپ نے کامیابی کے ساتھ اپنی آج کی لوکیشن سبمٹ کر دی ہے',
+    },
     'locQueued': {
       AppLanguage.english:
           'Not confirmed yet — it is saved on the phone and will be sent by itself when the internet returns. No need to send it again.',
@@ -1050,6 +1058,39 @@ class AppStrings {
       AppLanguage.english: 'Total doses (outreach): {n}',
       AppLanguage.urdu: 'کل خوراکیں (آؤٹ ریچ): {n}',
     },
+    // v1.0.6: overall A-to-Z summary + graphs on My Data.
+    'myDataSummary': {
+      AppLanguage.english: 'My Summary',
+      AppLanguage.urdu: 'میرا خلاصہ',
+    },
+    'myDataTileDoses': {
+      AppLanguage.english: 'Total doses',
+      AppLanguage.urdu: 'کل خوراکیں',
+    },
+    'myDataTilePresent': {
+      AppLanguage.english: 'Days present',
+      AppLanguage.urdu: 'حاضری کے دن',
+    },
+    'myDataTileLeave': {
+      AppLanguage.english: 'Leave taken',
+      AppLanguage.urdu: 'چھٹیاں',
+    },
+    'myDataTileRecords': {
+      AppLanguage.english: 'Service records',
+      AppLanguage.urdu: 'سروس ریکارڈ',
+    },
+    'myDataDosesChart': {
+      AppLanguage.english: 'Doses by antigen',
+      AppLanguage.urdu: 'اینٹیجن کے حساب سے خوراکیں',
+    },
+    'myDataDailyTrend': {
+      AppLanguage.english: 'Doses per day',
+      AppLanguage.urdu: 'روزانہ خوراکیں',
+    },
+    'myDataNoTrend': {
+      AppLanguage.english: 'No reports submitted this month yet.',
+      AppLanguage.urdu: 'اس مہینے ابھی کوئی رپورٹ جمع نہیں کرائی گئی۔',
+    },
     'myDataAllAntigens': {
       AppLanguage.english: 'All 21 antigens (outreach)',
       AppLanguage.urdu: 'تمام 21 ویکسینز (آؤٹ ریچ)',
@@ -1060,9 +1101,9 @@ class AppStrings {
     },
     'myDataDailyReportNote': {
       AppLanguage.english:
-          'These are the official month-to-date figures from the Summary sheet. Reports you send from this app will appear here too once the Daily Report tab is added on the server.',
+          'These are the official month-to-date figures from the Summary sheet. Your own reports sent from this app are listed day-wise in the Daily Reports screen.',
       AppLanguage.urdu:
-          'یہ سمری شیٹ کے مہینے کے سرکاری اعداد ہیں۔ اس ایپ سے بھیجی گئی رپورٹس بھی یہاں نظر آئیں گی جب سرور پر ڈیلی رپورٹ ٹیب شامل ہو جائے گا۔',
+          'یہ سمری شیٹ کے مہینے کے سرکاری اعداد ہیں۔ اس ایپ سے بھیجی گئی آپ کی اپنی رپورٹس روزانہ رپورٹس والی اسکرین میں دن کے حساب سے درج ہیں۔',
     },
     'myDataUcSummary': {
       AppLanguage.english: 'My UC Summary',
@@ -1348,6 +1389,17 @@ class AppStrings {
     'reportsPast': {
       AppLanguage.english: 'Previous days',
       AppLanguage.urdu: 'پچھلے دن',
+    },
+    // v1.0.6: the vaccinator's OWN submitted daily reports, day-wise.
+    'reportsMine': {
+      AppLanguage.english: 'My Submitted Reports',
+      AppLanguage.urdu: 'میری جمع شدہ رپورٹس',
+    },
+    'reportsMineEmpty': {
+      AppLanguage.english:
+          'You have not submitted a report yet — send one from the Daily Report screen.',
+      AppLanguage.urdu:
+          'آپ نے ابھی کوئی رپورٹ جمع نہیں کرائی — روزانہ رپورٹ والی اسکرین سے بھیجیں۔',
     },
     'reportsPrivacy': {
       AppLanguage.english:

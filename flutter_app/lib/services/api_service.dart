@@ -559,11 +559,15 @@ class ApiService {
     }
   }
 
-  /// Full submit flow for location/leave: single POST, then verify.
-  /// Returns true ONLY when the row is confirmed in the sheet.
-  Future<bool> submitAndVerify(Map<String, dynamic> payload) async {
-    final sent = await postPayload(payload);
-    if (!sent) return false;
+  /// Verify-only: checks the sheet for this payload's row WITHOUT
+  /// posting. Used by the queue flush (v1.0.6): a POST can land
+  /// while its verify lags (gviz read delay), leaving the item
+  /// queued even though the row is already in the sheet — so
+  /// "Sync Now" would show a remaining item that is already
+  /// submitted. Verify-first drops those honestly, without
+  /// re-posting (a re-post of a daily report would replace the
+  /// row, but a re-post of a location would DUPLICATE it).
+  Future<bool> verifyPayload(Map<String, dynamic> payload) async {
     final type = (payload['type'] ?? '').toString();
     if (type == 'location') {
       return verifyLocation(
@@ -605,6 +609,14 @@ class ApiService {
       );
     }
     return false;
+  }
+
+  /// Full submit flow for location/leave: single POST, then verify.
+  /// Returns true ONLY when the row is confirmed in the sheet.
+  Future<bool> submitAndVerify(Map<String, dynamic> payload) async {
+    final sent = await postPayload(payload);
+    if (!sent) return false;
+    return verifyPayload(payload);
   }
 
   void dispose() => _client.close();

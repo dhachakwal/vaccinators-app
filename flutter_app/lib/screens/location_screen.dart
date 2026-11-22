@@ -51,6 +51,9 @@ class _LocationScreenState extends State<LocationScreen> {
   bool _busy = false;
   String? _message;
   bool _messageError = false;
+  // True after a verified submit — then ONLY the Urdu Nastaliq success
+  // message shows (user order 22 Nov 2026): the locNote box is hidden.
+  bool _submittedOk = false;
   MockLocationCheck? _mockCheck;
   bool _mockReported = false;
 
@@ -114,6 +117,7 @@ class _LocationScreenState extends State<LocationScreen> {
       _mockCheck = null;
       _mockReported = false;
       _message = null;
+      _submittedOk = false;
     });
   }
 
@@ -181,8 +185,9 @@ class _LocationScreenState extends State<LocationScreen> {
     setState(() {
       _busy = false;
       _messageError = result != 'verified';
+      _submittedOk = result == 'verified';
       _message = result == 'verified'
-          ? lang.t('locSuccess', {'name': widget.user.name})
+          ? lang.t('locSubmittedToday')
           : lang.t('locQueued');
     });
   }
@@ -239,14 +244,54 @@ class _LocationScreenState extends State<LocationScreen> {
               color: const Color(0xFF1565C0),
             ),
           ],
-          if (_message != null) ...[
+          if (_submittedOk) ...[
+            const SizedBox(height: 12),
+            _SubmittedUrduMessage(text: _message!),
+          ] else if (_message != null) ...[
             const SizedBox(height: 12),
             InfoBox(_message!,
                 isError: _messageError, isSuccess: !_messageError),
           ],
-          const SizedBox(height: 12),
-          InfoBox(lang.t('locNote')),
+          if (!_submittedOk) ...[
+            const SizedBox(height: 12),
+            InfoBox(lang.t('locNote')),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// The post-submit success message: Urdu only, Nastaliq font
+/// (Noori Nastaliq when the user supplies the file, Noto Nastaliq
+/// Urdu fallback until then — see main.dart theme).
+/// User order 22 Nov 2026: after a verified location submit, ONLY
+/// this shows — no English thank-you box, no background-location note.
+class _SubmittedUrduMessage extends StatelessWidget {
+  final String text;
+  const _SubmittedUrduMessage({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2E7D32)),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.rtl,
+        style: const TextStyle(
+          fontFamily: 'Noori Nastaliq',
+          fontFamilyFallback: ['Noto Nastaliq Urdu'],
+          fontSize: 22,
+          height: 2.0,
+          color: Color(0xFF1B5E20),
+        ),
       ),
     );
   }

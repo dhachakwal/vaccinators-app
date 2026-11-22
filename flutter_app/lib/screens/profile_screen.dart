@@ -13,7 +13,10 @@ import '../widgets/common.dart';
 /// app version + update check + logout, and the language switch
 /// (Urdu script / English — exactly two options).
 /// All labels come from AppStrings (English or Urdu script).
-class ProfileScreen extends StatelessWidget {
+/// v1.0.6: Stateful — the queue count refreshes right after a
+/// sync, so "Sync Now (0 remaining)" shows as soon as the data
+/// is submitted instead of keeping the old number on screen.
+class ProfileScreen extends StatefulWidget {
   final Vaccinator user;
   final StorageService storage;
   final SyncService sync;
@@ -29,6 +32,33 @@ class ProfileScreen extends StatelessWidget {
     required this.language,
     required this.onLogout,
   });
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late int _pending;
+
+  Vaccinator get user => widget.user;
+  StorageService get storage => widget.storage;
+  SyncService get sync => widget.sync;
+  AppLanguage get lang => widget.lang;
+  LanguageService get language => widget.language;
+
+  @override
+  void initState() {
+    super.initState();
+    _pending = storage.queue.length;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-read the count every time the tab is shown again, so a
+    // report submitted from another tab is reflected here.
+    _pending = storage.queue.length;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +88,7 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 12),
           InfoBox(
             '${lang.t('lastLocation')}: ${storage.lastLocationAt ?? '—'}\n'
-            '${lang.t('syncRemaining')}: ${storage.queue.length}\n'
+            '${lang.t('syncRemaining')}: $_pending\n'
             '${lang.t('leaveBalanceOpening')}: ${user.openingRemaining.toInt()} ${lang.t('remainingYear')}',
           ),
           const SizedBox(height: 12),
@@ -107,11 +137,11 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           BigButton(
-            label:
-                '🔄 ${lang.t('syncNow', {'n': '${storage.queue.length}'})}',
+            label: '🔄 ${lang.t('syncNow', {'n': '$_pending'})}',
             onPressed: () async {
               final (sent, pending) = await sync.syncAll();
               if (context.mounted) {
+                setState(() => _pending = pending);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(lang.t('syncResult',
                         {'sent': '$sent', 'pending': '$pending'}))));
@@ -146,7 +176,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           TextButton(
-            onPressed: onLogout,
+            onPressed: widget.onLogout,
             child: Text(lang.t('logout'),
                 style:
                     const TextStyle(color: AppConfig.danger, fontSize: 16)),

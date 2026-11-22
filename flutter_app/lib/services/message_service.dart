@@ -62,6 +62,10 @@ class ParentChild {
   final String gender;
   final String phone;
   final String nextDue; // '' when every antigen is done.
+  /// Last vaccination/record update (EMR LastUpdatedDate). Null
+  /// when the sheet has none — the child was never recorded as
+  /// vaccinated. Used for the due/defaulter filter (v1.0.6).
+  final DateTime? lastUpdated;
 
   const ParentChild({
     required this.name,
@@ -70,6 +74,7 @@ class ParentChild {
     required this.gender,
     required this.phone,
     required this.nextDue,
+    this.lastUpdated,
   });
 
   String get firstName {
@@ -84,6 +89,7 @@ class ParentChild {
         'gender': gender,
         'phone': phone,
         'nextDue': nextDue,
+        'lastUpdated': lastUpdated?.toIso8601String(),
       };
 
   factory ParentChild.fromJson(Map<String, dynamic> m) => ParentChild(
@@ -93,6 +99,9 @@ class ParentChild {
         gender: (m['gender'] ?? '').toString(),
         phone: (m['phone'] ?? '').toString(),
         nextDue: (m['nextDue'] ?? '').toString(),
+        lastUpdated: m['lastUpdated'] == null
+            ? null
+            : DateTime.tryParse(m['lastUpdated'].toString()),
       );
 }
 
@@ -159,17 +168,36 @@ class MessageService {
   /// name goes in — never the full name, address or MR number.
   /// [date] is the due/missed date as the vaccinator typed it
   /// (dd-MM-yyyy); [customText] is used only for the custom
-  /// template. The signature is always 'EPI Chakwal' / 'ای پی آئی چکوال'.
+  /// template. [parentName] puts the parent's name first (v1.0.6).
+  /// The signature is always 'EPI Chakwal' / 'ای پی آئی چکوال'.
+  /// v1.0.6 (user order 22 Nov 2026): when [parentName] is given,
+  /// the parent's name comes FIRST (on top), then the message in
+  /// the user's own words — "your child has the [vaccine]
+  /// injection due, please get the injection done" — with no date.
   static String buildMessage(
     MessageTemplate template,
     AppLanguage lang, {
     required String childFirstName,
+    String parentName = '',
     String vaccine = '',
     String date = '',
     String customText = '',
   }) {
     final ur = lang == AppLanguage.urdu;
     final name = childFirstName.trim();
+    final parent = parentName.trim();
+    if (parent.isNotEmpty &&
+        (template == MessageTemplate.due ||
+            template == MessageTemplate.missed)) {
+      if (template == MessageTemplate.due) {
+        return ur
+            ? '$parent صاحب،\nالسلام علیکم! آپ کے بچے $name کو $vaccine کا انجیکشن due ہے۔ برائے مہربانی انجیکشن لگوا جائیں۔ — ای پی آئی چکوال'
+            : '$parent,\nAssalam-o-Alaikum! Your child $name is due for the $vaccine injection. Please get the injection done. — EPI Chakwal';
+      }
+      return ur
+          ? '$parent صاحب،\nالسلام علیکم! آپ کے بچے $name کی $vaccine ویکسین رہ گئی ہے۔ برائے مہربانی جلد از جلد انجیکشن لگوا جائیں۔ — ای پی آئی چکوال'
+          : '$parent,\nAssalam-o-Alaikum! Your child $name missed the $vaccine vaccine. Please get the injection done as soon as possible. — EPI Chakwal';
+    }
     switch (template) {
       case MessageTemplate.due:
         return ur
@@ -293,6 +321,48 @@ class MessageService {
     return '';
   }
 
+  /// Parse an EMR date cell: gviz "Date(y,m,d)" (0-based month),
+  /// ISO yyyy-MM-dd, or dd-MM-yyyy / dd/MM/yyyy. Null when the
+  /// cell is empty or unparseable.
+  static DateTime? _parseEmrDate(dynamic raw) {
+    final s = (raw ?? '').toString().trim();
+    if (s.isEmpty || s.contains('#')) return null;
+    final dm = RegExp(r'Date\((\d+),(\d+),(\d+)').firstMatch(s);
+    if (dm != null) {
+      return DateTime(
+        int.parse(dm.group(1)!),
+        int.parse(dm.group(2)!) + 1,
+        int.parse(dm.group(3)!),
+      );
+    }
+    final iso = DateTime.tryParse(s);
+    if (iso != null) return DateTime(iso.year, iso.month, iso.day);
+    final parts = s.split(RegExp(r'[-/]'));
+    if (parts.length == 3) {
+      final d = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      final y = int.tryParse(parts[2]);
+      if (d != null && m != null && y != null && y > 1900) {
+        return DateTime(y, m, d);
+      }
+    }
+    return null;
+  }
+
+  /// Due/defaulter rule (user order 22 Nov 2026): the child has a
+  /// dose still pending (nextDue non-empty) AND has had no
+  /// vaccination recorded this month — the list is current through
+  /// the last day (the nightly EMR refresh), so a child vaccinated
+  /// up to the last day is already excluded. A child with no
+  /// LastUpdatedDate at all was never recorded as vaccinated, so
+  /// they count as a defaulter.
+  static bool _isDueDefaulter(ParentChild c, DateTime monthStart) {
+    if (c.nextDue.isEmpty) return false;
+    final u = c.lastUpdated;
+    if (u == null) return true;
+    return u.isBefore(monthStart);
+  }
+
   static ParentChild _rowToChild(Map<String, dynamic> row) {
     final name = (ApiService.pick(row, ['name', 'child name']) ??
             ApiService.pick(row, ['firstname', 'first name']) ??
@@ -319,6 +389,8 @@ class MessageService {
       gender: (ApiService.pick(row, ['gender']) ?? '').toString().trim(),
       phone: phone,
       nextDue: _nextDue(row),
+      lastUpdated:
+          _parseEmrDate(ApiService.pick(row, ['lastupdateddate'])),
     );
   }
 
@@ -363,13 +435,32 @@ class MessageService {
           // Same guard as the site: a real month tab has rows and
           // at least 10 columns; otherwise try the next tab name.
           if (rows.isEmpty) continue;
+          // v1.0.6: DUE/DEFAULTER ONLY (user order 22 Nov 2026) —
+          // a pending dose + no vaccination this month (list is
+          // current through the last day). Fully-vaccinated and
+          // recently-vaccinated children are NOT listed.
+          final nowPkt =
+              DateTime.now().toUtc().add(const Duration(hours: 5));
+          final monthStart = DateTime(nowPkt.year, nowPkt.month, 1);
           final children = rows
               .map(_rowToChild)
               .where((c) => c.name.isNotEmpty)
+              .where((c) => _isDueDefaulter(c, monthStart))
               .toList();
           if (children.isEmpty) continue;
-          children.sort((a, b) =>
-              a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          children.sort((a, b) {
+            final au = a.lastUpdated;
+            final bu = b.lastUpdated;
+            if (au == null && bu == null) {
+              return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+            }
+            if (au == null) return -1;
+            if (bu == null) return 1;
+            final byDate = au.compareTo(bu);
+            return byDate != 0
+                ? byDate
+                : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
           await prefs.setString(key,
               jsonEncode(children.map((c) => c.toJson()).toList()));
           return (children, false, false);

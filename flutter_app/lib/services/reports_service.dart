@@ -5,6 +5,76 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
+import '../models/vaccinator.dart';
+import 'api_service.dart';
+
+/// One daily report THIS vaccinator submitted from the app
+/// (DailyReport tab of the Master sheet), shown day-wise in the
+/// Reports screen (v1.0.6, user order 22 Nov 2026).
+class MySubmittedReport {
+  final String date; // yyyy-MM-dd
+  final String kitStation;
+  final int bcg;
+  final int pentaI;
+  final int pentaII;
+  final int pentaIII;
+  final int mr1;
+  final int mr2;
+  final int dtp;
+  final int total;
+
+  const MySubmittedReport({
+    required this.date,
+    required this.kitStation,
+    required this.bcg,
+    required this.pentaI,
+    required this.pentaII,
+    required this.pentaIII,
+    required this.mr1,
+    required this.mr2,
+    required this.dtp,
+    required this.total,
+  });
+
+  /// "22 Nov 2026" — day + short English month + year.
+  String get label {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final p = date.split('-');
+    if (p.length != 3) return date;
+    final m = int.tryParse(p[1]) ?? 1;
+    return '${int.tryParse(p[2]) ?? p[2]} ${months[m - 1]} ${p[0]}';
+  }
+
+  Map<String, dynamic> toJson() => {
+        'date': date,
+        'kitStation': kitStation,
+        'bcg': bcg,
+        'pentaI': pentaI,
+        'pentaII': pentaII,
+        'pentaIII': pentaIII,
+        'mr1': mr1,
+        'mr2': mr2,
+        'dtp': dtp,
+        'total': total,
+      };
+
+  factory MySubmittedReport.fromJson(Map<String, dynamic> m) =>
+      MySubmittedReport(
+        date: (m['date'] ?? '').toString(),
+        kitStation: (m['kitStation'] ?? '').toString(),
+        bcg: (m['bcg'] as num?)?.toInt() ?? 0,
+        pentaI: (m['pentaI'] as num?)?.toInt() ?? 0,
+        pentaII: (m['pentaII'] as num?)?.toInt() ?? 0,
+        pentaIII: (m['pentaIII'] as num?)?.toInt() ?? 0,
+        mr1: (m['mr1'] as num?)?.toInt() ?? 0,
+        mr2: (m['mr2'] as num?)?.toInt() ?? 0,
+        dtp: (m['dtp'] as num?)?.toInt() ?? 0,
+        total: (m['total'] as num?)?.toInt() ?? 0,
+      );
+}
 
 /// DAILY REPORTS IN-APP (user order, 19 Nov 2026).
 ///
@@ -187,6 +257,99 @@ class ReportsService {
       return _parseManifest(raw, myUc);
     } catch (_) {
       return [];
+    }
+  }
+
+  // ---------- My own submitted reports (day-wise, v1.0.6) ----------
+
+  static String _myCacheKey(String username) =>
+      'my_submitted_reports_$username';
+
+  static int _asInt(dynamic v) {
+    if (v is num) return v.toInt();
+    return int.tryParse((v ?? '').toString().trim()) ?? 0;
+  }
+
+  /// Normalise a DailyReport 'Date' cell to yyyy-MM-dd: the sheet
+  /// may hold the string '2026-11-22' or a gviz Date(y,m,d).
+  static String _normDate(dynamic raw) {
+    final s = (raw ?? '').toString().trim();
+    if (s.isEmpty) return '';
+    final dm = RegExp(r'Date\((\d+),(\d+),(\d+)').firstMatch(s);
+    if (dm != null) {
+      final y = dm.group(1)!;
+      final m = (int.parse(dm.group(2)!) + 1).toString().padLeft(2, '0');
+      final d = int.parse(dm.group(3)!).toString().padLeft(2, '0');
+      return '$y-$m-$d';
+    }
+    final iso = DateTime.tryParse(s);
+    if (iso != null) {
+      return '${iso.year}-${iso.month.toString().padLeft(2, '0')}-${iso.day.toString().padLeft(2, '0')}';
+    }
+    return s;
+  }
+
+  /// The logged-in vaccinator's own submitted daily reports from
+  /// the DailyReport tab — one row per day, newest first. Only
+  /// rows matching their username (or name, as fallback) are kept.
+  /// Cached on the phone, so the list shows offline too. Returns
+  /// ([reports], [fromCache]).
+  Future<(List<MySubmittedReport>, bool)> fetchMySubmittedReports(
+      Vaccinator user) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _myCacheKey(user.username);
+    List<MySubmittedReport> fromCache() {
+      try {
+        final raw = prefs.getString(key);
+        if (raw == null || raw.isEmpty) return [];
+        final list = jsonDecode(raw) as List;
+        return list
+            .map((e) => MySubmittedReport.fromJson(
+                (e as Map).cast<String, dynamic>()))
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
+
+    try {
+      final rows = await ApiService().readTab('DailyReport');
+      final uname = user.username.trim();
+      final unameDigits = uname.replaceAll(RegExp(r'\D'), '');
+      final nm = user.name.trim().toLowerCase();
+      final mine = <MySubmittedReport>[];
+      for (final r in rows) {
+        final ru = (ApiService.pick(r, ['username']) ?? '').toString().trim();
+        final ruDigits = ru.replaceAll(RegExp(r'\D'), '');
+        final rn =
+            (ApiService.pick(r, ['name']) ?? '').toString().trim().toLowerCase();
+        final isMine = (unameDigits.isNotEmpty &&
+                ruDigits.isNotEmpty &&
+                ruDigits == unameDigits) ||
+            (nm.isNotEmpty && rn.isNotEmpty && rn == nm);
+        if (!isMine) continue;
+        final date = _normDate(ApiService.pick(r, ['date']));
+        if (date.isEmpty) continue;
+        mine.add(MySubmittedReport(
+          date: date,
+          kitStation:
+              (ApiService.pick(r, ['kit station']) ?? '').toString().trim(),
+          bcg: _asInt(ApiService.pick(r, ['bcg'])),
+          pentaI: _asInt(ApiService.pick(r, ['penta-i'])),
+          pentaII: _asInt(ApiService.pick(r, ['penta-ii'])),
+          pentaIII: _asInt(ApiService.pick(r, ['penta-iii'])),
+          mr1: _asInt(ApiService.pick(r, ['mr-1'])),
+          mr2: _asInt(ApiService.pick(r, ['mr-ii'])),
+          dtp: _asInt(ApiService.pick(r, ['dtp'])),
+          total: _asInt(ApiService.pick(r, ['total children'])),
+        ));
+      }
+      mine.sort((a, b) => b.date.compareTo(a.date));
+      await prefs.setString(
+          key, jsonEncode(mine.map((e) => e.toJson()).toList()));
+      return (mine, false);
+    } catch (_) {
+      return (fromCache(), true);
     }
   }
 

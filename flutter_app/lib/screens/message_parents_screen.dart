@@ -99,6 +99,7 @@ class _MessageParentsScreenState extends State<MessageParentsScreen> {
         template,
         lang,
         childFirstName: child.firstName,
+        parentName: child.father,
         vaccine: vaccineCtrl.text.trim(),
         date: dateCtrl.text.trim(),
         customText: customCtrl.text,

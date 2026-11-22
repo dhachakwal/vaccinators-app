@@ -4,6 +4,7 @@ import '../l10n/app_strings.dart';
 import '../models/vaccinator.dart';
 import '../services/microplan_service.dart';
 import '../services/my_data_service.dart';
+import '../services/reports_service.dart';
 import '../widgets/common.dart';
 
 /// S11 — My Data (user order, 19 Nov 2026 — PRIVACY RULE).
@@ -27,10 +28,14 @@ class MyDataScreen extends StatefulWidget {
 class _MyDataScreenState extends State<MyDataScreen> {
   final MyDataService _service = MyDataService();
   final MicroplanService _microplans = MicroplanService();
+  final ReportsService _reports = ReportsService();
   late MyDataMonth _month;
   MyDataBundle? _bundle;
   bool _loading = true;
   bool _fromCache = false;
+  // v1.0.6: my own submitted reports, as day -> total doses, for
+  // the selected month (daily trend graph).
+  Map<int, int> _dailyDoses = {};
 
   // My Microplan (user order, 19 Nov 2026; files audited
   // 20 Nov 2026): ONLY my own UC's file, downloaded on demand.
@@ -52,6 +57,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
   void dispose() {
     _service.dispose();
     _microplans.dispose();
+    _reports.dispose();
     super.dispose();
   }
 
@@ -111,10 +117,25 @@ class _MyDataScreenState extends State<MyDataScreen> {
     setState(() => _loading = true);
     final (bundle, fromCache) =
         await _service.fetchMyData(widget.user, _month);
+    // Daily trend: my own submitted reports for the selected month.
+    final daily = <int, int>{};
+    try {
+      final (mine, _) =
+          await _reports.fetchMySubmittedReports(widget.user);
+      for (final r in mine) {
+        if (!r.date.startsWith(_month.key)) continue;
+        final day = int.tryParse(r.date.split('-').last) ?? 0;
+        if (day <= 0) continue;
+        daily[day] = (daily[day] ?? 0) + r.total;
+      }
+    } catch (_) {
+      // Trend is a bonus — a failure here never blocks My Data.
+    }
     if (!mounted) return;
     setState(() {
       _bundle = bundle;
       _fromCache = fromCache;
+      _dailyDoses = daily;
       _loading = false;
     });
   }
@@ -183,6 +204,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   b.leaves.isEmpty))
                 InfoBox(lang.t('myDataLoadFailed'), isError: true)
               else ...[
+                _summaryCard(b),
                 _microplanSection(),
                 _section(
                   lang.t('myDataAttendance'),
@@ -219,9 +241,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ...b.appAntigenDoses.entries.map(
-                              (e) => _doseRow(e.key, e.value),
-                            ),
+                            Text(lang.t('myDataDosesChart'),
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            ..._antigenBars(b.appAntigenDoses),
                             const SizedBox(height: 6),
                             ExpansionTile(
                               title: Text(lang.t('myDataAllAntigens'),
@@ -238,6 +263,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                     fontSize: 12, color: Colors.grey)),
                           ],
                         ),
+                ),
+                _section(
+                  lang.t('myDataDailyTrend'),
+                  '',
+                  _dailyDoses.isEmpty
+                      ? Text(lang.t('myDataNoTrend'))
+                      : _trendChart(),
                 ),
                 _section(
                   lang.t('myDataUcSummary'),
@@ -479,6 +511,175 @@ class _MyDataScreenState extends State<MyDataScreen> {
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
+    );
+  }
+
+  /// v1.0.6 — Overall A-to-Z summary (user order 22 Nov 2026):
+  /// total doses, days present, leave taken, service records.
+  Widget _summaryCard(MyDataBundle b) {
+    final lang = widget.lang;
+    final total = b.outreachTotal + b.fixedTotal;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: const Color(0xFFE8F5E9),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(lang.t('myDataSummary'),
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                    child: _statTile(
+                        '$total', lang.t('myDataTileDoses'))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _statTile('${b.presentDays}',
+                        lang.t('myDataTilePresent'))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                    child: _statTile('${b.leaves.length}',
+                        lang.t('myDataTileLeave'))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _statTile('${b.records.length}',
+                        lang.t('myDataTileRecords'))),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statTile(String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFC8E6C9)),
+      ),
+      child: Column(
+        children: [
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppConfig.darkGreen)),
+          const SizedBox(height: 2),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  /// Horizontal bars for doses by antigen (no chart package —
+  /// plain proportional bars, so the APK stays lean).
+  List<Widget> _antigenBars(Map<String, int> doses) {
+    final maxV = doses.values.fold<int>(0, (a, v) => v > a ? v : a);
+    return doses.entries.map((e) {
+      final frac = maxV > 0 ? e.value / maxV : 0.0;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 64,
+              child: Text(e.key,
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: frac,
+                  minHeight: 14,
+                  backgroundColor: const Color(0xFFE0E0E0),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppConfig.midGreen),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 32,
+              child: Text('${e.value}',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  /// Vertical bars: my own submitted doses per day this month.
+  /// Days run 1..last day of the selected month (current month:
+  /// only up to today).
+  Widget _trendChart() {
+    final nowPkt = DateTime.now().toUtc().add(const Duration(hours: 5));
+    final lastDay = _month.isCurrent
+        ? nowPkt.day
+        : DateTime(_month.year, _month.month + 1, 0).day;
+    final maxV = _dailyDoses.values.fold<int>(0, (a, v) => v > a ? v : a);
+    final days = List<int>.generate(lastDay, (i) => i + 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 120,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: days.map((d) {
+              final v = _dailyDoses[d] ?? 0;
+              final h = maxV > 0 ? (v / maxV) * 84 : 0.0;
+              return Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(v > 0 ? '$v' : '',
+                        style: const TextStyle(fontSize: 9)),
+                    Container(
+                      height: v > 0 ? (h < 4 ? 4 : h) : 2,
+                      margin: const EdgeInsets.symmetric(horizontal: 1),
+                      decoration: BoxDecoration(
+                        color: v > 0
+                            ? AppConfig.midGreen
+                            : const Color(0xFFE0E0E0),
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(3)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: days
+              .map((d) => Expanded(
+                    child: Text(
+                      d % 5 == 1 || d == lastDay ? '$d' : '',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 9, color: Colors.grey),
+                    ),
+                  ))
+              .toList(),
+        ),
+      ],
     );
   }
 }

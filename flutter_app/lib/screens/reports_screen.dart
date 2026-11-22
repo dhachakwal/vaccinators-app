@@ -35,6 +35,8 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   final ReportsService _service = ReportsService();
   List<ReportDay> _days = [];
+  // v1.0.6: my own submitted daily reports, day-wise.
+  List<MySubmittedReport> _mine = [];
   bool _loading = true;
   bool _fromCache = false;
   bool _hadError = false;
@@ -57,6 +59,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     setState(() => _loading = true);
     final (days, fromCache) =
         await _service.fetchForUc(widget.user.uc);
+    final (mine, _) =
+        await _service.fetchMySubmittedReports(widget.user);
     if (!mounted) return;
     final downloaded = <String>{};
     for (final d in days) {
@@ -67,6 +71,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (!mounted) return;
     setState(() {
       _days = days;
+      _mine = mine;
       _fromCache = fromCache;
       _hadError = days.isEmpty && fromCache;
       _downloaded = downloaded;
@@ -160,29 +165,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else if (_hadError)
-                InfoBox(lang.t('reportsLoadFailed'), isError: true)
-              else if (_days.isEmpty)
-                InfoBox(lang.t('reportsEmpty'))
               else ...[
-                if (today.isNotEmpty) ...[
-                  _dayHeader(lang.t('reportsToday')),
-                  for (final it in today.first.items)
-                    _row(it, isUrdu),
-                ],
-                if (past.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _dayHeader(lang.t('reportsPast')),
-                  for (final d in past) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10, bottom: 4),
-                      child: Text(
-                        d.label,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.bold),
+                // v1.0.6: MY OWN submitted reports, day-wise, FIRST.
+                _dayHeader(lang.t('reportsMine')),
+                if (_mine.isEmpty)
+                  InfoBox(lang.t('reportsMineEmpty'))
+                else
+                  for (final r in _mine) _mineRow(r, isUrdu),
+                const SizedBox(height: 16),
+                if (_hadError)
+                  InfoBox(lang.t('reportsLoadFailed'), isError: true)
+                else if (_days.isEmpty)
+                  InfoBox(lang.t('reportsEmpty'))
+                else ...[
+                  if (today.isNotEmpty) ...[
+                    _dayHeader(lang.t('reportsToday')),
+                    for (final it in today.first.items) _row(it, isUrdu),
+                  ],
+                  if (past.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _dayHeader(lang.t('reportsPast')),
+                    for (final d in past) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 4),
+                        child: Text(
+                          d.label,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    for (final it in d.items) _row(it, isUrdu),
+                      for (final it in d.items) _row(it, isUrdu),
+                    ],
                   ],
                 ],
               ],
@@ -190,6 +203,53 @@ class _ReportsScreenState extends State<ReportsScreen> {
               InfoBox(lang.t('reportsPipelineNote')),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// One of my own submitted daily reports: date + antigen counts.
+  Widget _mineRow(MySubmittedReport r, bool isUrdu) {
+    final lang = widget.lang;
+    final parts = <String>[
+      'BCG ${r.bcg}',
+      'Penta-1 ${r.pentaI}',
+      'Penta-2 ${r.pentaII}',
+      'Penta-3 ${r.pentaIII}',
+      'MR-1 ${r.mr1}',
+      'MR-2 ${r.mr2}',
+      'DTP ${r.dtp}',
+    ];
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(r.label,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  lang.t('totalChildren', {'n': '${r.total}'}),
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppConfig.darkGreen),
+                ),
+              ],
+            ),
+            if (r.kitStation.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(r.kitStation, style: const TextStyle(fontSize: 13)),
+            ],
+            const SizedBox(height: 4),
+            Text(parts.join('  ·  '),
+                style: const TextStyle(fontSize: 13)),
+          ],
         ),
       ),
     );
