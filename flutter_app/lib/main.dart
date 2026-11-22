@@ -222,6 +222,12 @@ class _RootScreenState extends State<RootScreen> {
       _user = storage.login;
       _ready = true;
     });
+    // v1.0.5: fake-login cleanup — a saved session is only valid if
+    // its PIN still matches the roster PIN. Sessions saved before
+    // PINs existed (or with a wrong PIN) are logged out once the
+    // roster loads, so the vaccinator must log in with the real PIN.
+    // Offline with no roster at all, the session is left alone.
+    unawaited(_validateSession());
     // 1. Offline-queue sync runs in the background.
     unawaited(_sync.syncAll());
     // 2. Update check runs in the background too. A FORCED update
@@ -347,6 +353,34 @@ class _RootScreenState extends State<RootScreen> {
     await _storage?.logout();
     await LocationService.cancelBackground();
     if (mounted) setState(() => _user = null);
+  }
+
+  /// v1.0.5: a saved session is only valid while its PIN matches the
+  /// roster PIN. A roster with no PIN for the user (stale cache) or a
+  /// fetch failure leaves the session alone — never lock a
+  /// vaccinator out offline. A real mismatch logs them out.
+  Future<void> _validateSession() async {
+    final user = _user;
+    final storage = _storage;
+    if (user == null || storage == null) return;
+    var roster = storage.roster;
+    if (roster.isEmpty) {
+      try {
+        roster = await _api.loadRoster();
+        await storage.saveRoster(roster);
+      } catch (_) {
+        return;
+      }
+    }
+    final match = roster
+        .where((v) => v.username == user.username && v.name == user.name)
+        .toList();
+    if (match.isEmpty) return;
+    final pin = match.first.pin;
+    if (pin.isNotEmpty && user.pin != pin) {
+      await storage.logout();
+      if (mounted) setState(() => _user = null);
+    }
   }
 
   @override
