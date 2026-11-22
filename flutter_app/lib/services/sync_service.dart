@@ -40,12 +40,23 @@ class SyncService {
   /// anyway, verify always failed, and the loop broke — one queued
   /// daily report blocked every location/leave behind it, so
   /// "sync" looked dead.)
+  /// v1.0.6: verify FIRST, post only if the row is not already
+  /// there. A POST can land while its verify lags, leaving the
+  /// item queued although the row is already in the sheet — the
+  /// user then sees "Sync Now (1 remaining)" for data that is
+  /// already submitted. Verify-first drops those items without
+  /// re-posting (and without duplicating a location row).
   Future<(int, int)> syncAll() async {
     if (!await hasNet) return (0, storage.queue.length);
     var sent = 0;
     for (final item in List.of(storage.queue)) {
       if (item.attempts >= 5) continue;
       if (!verifiableTypes.contains(item.type)) continue;
+      if (await api.verifyPayload(item.payload)) {
+        await storage.removeFromQueue(item.id);
+        sent++;
+        continue;
+      }
       final ok = await api.submitAndVerify(item.payload);
       if (ok) {
         await storage.removeFromQueue(item.id);
