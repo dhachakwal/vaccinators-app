@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 
-/// App-wide constants. Backend = existing Google Sheets + Apps Script.
-/// Sheet structure is NOT changed by this app. See GOAL.md for the
-/// full backend notes, including which payload types are new.
+/// App-wide constants. Backend = NEW Google Sheets + Apps Script
+/// on Pak Eagle (user order, 22 Nov 2026 — parallel system; the
+/// LIVE backend is untouched). Sheet structure is NOT changed by
+/// this app. See GOAL.md for the full backend notes.
 class AppConfig {
   AppConfig._();
 
   static const String appName = 'Vaccinators App';
   static const String district = 'EPI District Chakwal';
-  static const String versionName = '1.0.3';
-  static const int versionCode = 4;
+  static const String versionName = '1.0.4';
+  static const int versionCode = 5;
 
-  // --- Existing backend (do not change) ---
+  // --- NEW backend (22 Nov 2026, Pak Eagle) — TEST BUILD ONLY.
+  // Do NOT publish this version to version.json until the user
+  // says to move the whole district onto the new system.
   static const String masterSheetId =
-      '1nG-J44aAXotVp9BTBA_DAu7StQNH3xXK7C02L9hzzd4';
+      '1HkIPLMk4s6U873txeP9q7XMA1p6HVnXUUmUab0fDeUI';
   static const String locationScriptUrl =
-      'https://script.google.com/macros/s/AKfycbzhD-4cnQXmLXarQLIYS6Lx6-C6Ztv2_LUkHVlHs-4neHnizD_VO8WptnFNgL3ED9r9Mw/exec';
+      'https://script.google.com/macros/s/AKfycbwOvjLatBof0u__XtAY0E869AznjeY7MdE4j2Q6kXUhyCvDT8sW2k6PRCn0IhAn_MU/exec';
   static const String siteBase = 'https://dhachakwal.github.io/EPI-Chakwal';
   static const String versionJsonUrl = '$siteBase/version.json';
   static const String apkUrl = '$siteBase/vaccinators-app.apk';
@@ -51,13 +54,13 @@ class AppConfig {
   // Summary by Vaccinator Chakwal — tabs Outreach / Fixed (live,
   // current month) + Out_YYYY-MM / Fix_YYYY-MM (month archives).
   static const String summarySheetId =
-      '16YcZU2RwgWMtNjfjukHqsNTH-EW5T-TcZ5XNwgh79ls';
+      '1o7KELzEO50pu-kpGYQ_LR16k7eOzPMBMJoJ-N9EMP_M';
   // Attendance — tabs 'Chek-In' / 'Check-Out' (append-only).
   static const String attendanceSheetId =
-      '1KAuJOL3WuYdp5YA4sD70kofeVkYPP3bJ5Rxro_0MUUc';
+      '1sPPllRYTJOju3xrQNfQahoLa0SNOp1iLJ7_wTvQrTKQ';
   // Vaccinator Records — tab 'Records' (service-record letters).
   static const String recordsSheetId =
-      '11GHoNbiXzpLhQb6qb9Hyki1Z8bd-pCMMZRt-UFyG764';
+      '1EQwOe4sFs0hR5_eNYFllRvHGLpLeXdRE2nHXI-pF_uU';
 
   // --- Message Parents (user question, 19 Nov 2026): parent
   // numbers come from the EXISTING EMR sheet — the same sheet the
@@ -66,7 +69,7 @@ class AppConfig {
   // structure changed, no new write endpoint. Only the logged-in
   // vaccinator's OWN UC rows are ever read (see MessageService).
   static const String emrSheetId =
-      '13ZSu5fZQFarP4bXLQhJVETtGuYOEb8C9jrrdcvK1TAo';
+      '15xqAoGF3gu2OD0oK_25P1141Qx_PTO2MezqSgc8eDIg';
 
   /// Month-tab names for the EMR sheet, in the site's own try
   /// order (index.html loadEmrData): 'Nov-2026', 'Nov 2026',
