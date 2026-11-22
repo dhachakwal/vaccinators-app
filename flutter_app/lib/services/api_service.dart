@@ -190,6 +190,12 @@ class ApiService {
         uc: pick(r, ['union council', 'uc']) ?? '',
         name: name.trim(),
         username: ApiHelpers.normUser(pick(r, ['username']) ?? ''),
+        // PIN cells are text (leading zeros matter: 0786, not 786).
+        // If a cell lost its zero and came back numeric, restore it.
+        pin: () {
+          final p = (pick(r, ['pin']) ?? '').trim();
+          return p.isEmpty ? '' : p.padLeft(4, '0');
+        }(),
         openingRemaining: double.tryParse(
                 (pick(r, ['remaining leave', 'remaining']) ?? '')
                     .replaceAll(',', '')) ??
