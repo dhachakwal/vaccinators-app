@@ -9,8 +9,8 @@ class AppConfig {
 
   static const String appName = 'Vaccinators App';
   static const String district = 'EPI District Chakwal';
-  static const String versionName = '1.0.6';
-  static const int versionCode = 7;
+  static const String versionName = '1.0.7';
+  static const int versionCode = 8;
 
   // --- NEW backend (22 Nov 2026, Pak Eagle) — TEST BUILD ONLY.
   // Do NOT publish this version to version.json until the user
@@ -51,16 +51,21 @@ class AppConfig {
   // endpoint. Each vaccinator only ever sees their OWN UC (see
   // MyDataService — the UC comes from the login only, there is no
   // UC picker anywhere in the app).
+  // User decision 22 Nov 2026 ("Live sheets se parhe"): these four
+  // read-only feeds read the LIVE sheets, so My Data is always
+  // fresh — the new-system copies would go stale (nightly HMIS
+  // appends write to the live sheets only). Master sheet + endpoint
+  // stay on the NEW system (app's own data + PINs).
   // Summary by Vaccinator Chakwal — tabs Outreach / Fixed (live,
   // current month) + Out_YYYY-MM / Fix_YYYY-MM (month archives).
   static const String summarySheetId =
-      '1o7KELzEO50pu-kpGYQ_LR16k7eOzPMBMJoJ-N9EMP_M';
+      '16YcZU2RwgWMtNjfjukHqsNTH-EW5T-TcZ5XNwgh79ls';
   // Attendance — tabs 'Chek-In' / 'Check-Out' (append-only).
   static const String attendanceSheetId =
-      '1sPPllRYTJOju3xrQNfQahoLa0SNOp1iLJ7_wTvQrTKQ';
+      '1KAuJOL3WuYdp5YA4sD70kofeVkYPP3bJ5Rxro_0MUUc';
   // Vaccinator Records — tab 'Records' (service-record letters).
   static const String recordsSheetId =
-      '1EQwOe4sFs0hR5_eNYFllRvHGLpLeXdRE2nHXI-pF_uU';
+      '11GHoNbiXzpLhQb6qb9Hyki1Z8bd-pCMMZRt-UFyG764';
 
   // --- Message Parents (user question, 19 Nov 2026): parent
   // numbers come from the EXISTING EMR sheet — the same sheet the
@@ -69,7 +74,7 @@ class AppConfig {
   // structure changed, no new write endpoint. Only the logged-in
   // vaccinator's OWN UC rows are ever read (see MessageService).
   static const String emrSheetId =
-      '15xqAoGF3gu2OD0oK_25P1141Qx_PTO2MezqSgc8eDIg';
+      '13ZSu5fZQFarP4bXLQhJVETtGuYOEb8C9jrrdcvK1TAo';
 
   /// Month-tab names for the EMR sheet, in the site's own try
   /// order (index.html loadEmrData): 'Nov-2026', 'Nov 2026',
