@@ -7,9 +7,10 @@ import '../widgets/common.dart';
 
 /// Login: Tehsil -> UC -> Name (roster from All Vaccinators Profile),
 /// then mobile + 4-digit PIN.
-/// PIN note: the PIN column does not exist in the sheet yet (see
-/// GOAL.md). Until it does, v1 accepts any 4-digit PIN on first login
-/// and stores it locally; the admin PIN check is marked pending.
+/// The PIN is checked against the roster: every vaccinator has a PIN
+/// in column O ("PIN") of the profile tab (last 4 digits of their
+/// username; Zain Islam 1234). A wrong PIN is refused — there is no
+/// demo / without-login path (removed v1.0.5, user order 22 Nov 2026).
 /// The roster itself is cached, so login works offline after day 1.
 /// All labels come from AppStrings (English or Urdu script) —
 // no Roman Urdu anywhere in this app (user order, 19 Nov 2026).
@@ -84,6 +85,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     if (_pin.text.trim().length != 4) {
       setState(() => _error = lang.t('loginPinError'));
+      return;
+    }
+    // Real PIN check (v1.0.5): the entered PIN must match the PIN
+    // on the vaccinator's roster row. No PIN on the row, or a
+    // mismatch, refuses the login — fail closed, no demo path.
+    if (v.first.pin.isEmpty || _pin.text.trim() != v.first.pin) {
+      setState(() => _error = lang.t('loginWrongPin'));
       return;
     }
     widget.storage.saveLogin(v.first).then((_) => widget.onLoggedIn());
@@ -174,11 +182,6 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
               InfoBox(_error!, isError: true),
             ],
-            const SizedBox(height: 8),
-            Text(
-              lang.t('pinPendingNote'),
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
           ],
         ],
       ),
