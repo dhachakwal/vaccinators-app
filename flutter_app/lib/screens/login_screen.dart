@@ -105,6 +105,19 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // EPI logo (v1.0.6) — the app finally has its own logo.
+          Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(
+                'assets/images/epi_logo.png',
+                height: 96,
+                width: 96,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           InfoBox(lang.t('loginInfo')),
           const SizedBox(height: 16),
           if (_loading)
