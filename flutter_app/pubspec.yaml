@@ -1,7 +1,7 @@
 name: vaccinators_app
 description: "EPI District Chakwal — Vaccinators App v1 (live location, daily report, zero entry, leave). Free APK, no Play Store. Languages: English and Urdu (proper Urdu script) — no Roman Urdu."
 publish_to: 'none'
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
