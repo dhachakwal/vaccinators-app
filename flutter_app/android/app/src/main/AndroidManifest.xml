@@ -21,17 +21,9 @@
          new APK itself and opens the Android installer for it.
          Android 8+ needs this to install an APK from the app. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- V2 calling (WebRTC): microphone + audio routing for audio/video
-         calls; FOREGROUND_SERVICE_MICROPHONE keeps an active call alive
-         when the app is in the background. Camera is already above
-         (leave photo); screen share uses the system MediaProjection
-         prompt at call time, no extra permission here. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- V2 calling permissions (RECORD_AUDIO etc.) removed 27 Nov
+         2026 with the calling packages (APK size); restore with
+         the calling code when Firebase is set up. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
