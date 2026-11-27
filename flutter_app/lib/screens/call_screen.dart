@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../config.dart';
 import '../l10n/app_strings.dart';
@@ -45,7 +44,6 @@ class CallScreen extends StatelessWidget {
       animation: call,
       builder: (context, _) {
         final lang = language;
-        final isVideo = call.type == CallType.video;
         final sharing = call.isSharingScreen;
         return Scaffold(
           backgroundColor: Colors.black,
@@ -63,18 +61,9 @@ class CallScreen extends StatelessWidget {
               Expanded(
                 child: Stack(
                   children: [
-                    // Remote video, or the shared screen, or audio view.
-                    if (isVideo || sharing)
-                      Positioned.fill(
-                        child: RTCVideoView(
-                          call.remoteRenderer,
-                          mirror: false,
-                          objectFit:
-                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                        ),
-                      )
-                    else
-                      Center(
+                    // Audio avatar view. (Video views return with the
+                    // real calling code — see call_service.dart.)
+                    Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -114,28 +103,6 @@ class CallScreen extends StatelessWidget {
                             lang.t('viewingScreen'),
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    // Local camera, picture-in-picture (video calls only,
-                    // hidden while sharing the screen).
-                    if (isVideo && !sharing)
-                      Positioned(
-                        right: 12,
-                        bottom: 12,
-                        width: 110,
-                        height: 150,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppConfig.gold, width: 2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: RTCVideoView(
-                            call.localRenderer,
-                            mirror: true,
-                            objectFit: RTCVideoViewObjectFit
-                                .RTCVideoViewObjectFitCover,
                           ),
                         ),
                       ),
