@@ -1,7 +1,7 @@
 name: vaccinators_app
 description: "EPI District Chakwal — Vaccinators App v1 (live location, daily report, zero entry, leave). Free APK, no Play Store. Languages: English and Urdu (proper Urdu script) — no Roman Urdu."
 publish_to: 'none'
-version: 1.0.7+8
+version: 1.0.8+9
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -30,22 +30,14 @@ dependencies:
   # Map (OpenStreetMap tiles — free, no API key)
   flutter_map: ^7.0.2
   latlong2: ^0.9.0
-  # V2 calling — WebRTC (free, open source). Skeleton only in v1:
-  # flutter_webrtc 1.6.3 from OUR fork (dhachakwal/flutter-webrtc,
-  # commit b73440d): upstream 1.6.3's Android code still implements
-  # the OLD SurfaceProducer.Callback names (onSurfaceAvailable /
-  # onSurfaceCleanup) but Flutter 3.24's engine requires
-  # onSurfaceCreated / onSurfaceDestroyed — the hosted 1.6.3 does
-  # not compile against this Flutter. The fork changes ONLY those
-  # two method names; Dart code is identical. If upstream ever
-  # publishes a fixed version, switch back to the hosted package.
-  # Signalling (Firebase Realtime Database, Spark free plan) is NOT
-  # added yet — see lib/services/call_service.dart TODOs. Do not
-  # claim calls work until the signalling + two-phone test are done.
-  flutter_webrtc:
-    git:
-      url: https://github.com/dhachakwal/flutter-webrtc.git
-      ref: b73440d71512176d91c8a4f15f7690e779946dc5
+  # V2 calling packages (flutter_webrtc + firebase_core +
+  # firebase_database) were REMOVED 27 Nov 2026 to cut APK size
+  # (user order): calling cannot work until the Firebase project
+  # exists (design doc §10), so the packages were dead weight.
+  # The real calling code + exact dependency pins are backed up
+  # in hidden_files/call-code-backup-v1.0.7/ — restore from there
+  # when Firebase is set up. lib/services/call_service.dart is a
+  # stub with the same API until then.
   # Dynamic Google Forms (user order, 19 Nov 2026): each form opens
   # INSIDE the app in a WebView (lib/screens/forms_screen.dart).
   # Pinned to EXACTLY 4.9.0 on purpose: 4.9.0 raised the minimum
@@ -55,21 +47,6 @@ dependencies:
   # Flutter cannot build. When Flutter is upgraded, relax this to
   # ^4.14.0. minSdk stays 21 — webview_flutter 4.9.0 supports it.
   webview_flutter: 4.9.0
-  # V2 calling — Firebase Realtime Database signalling (Spark free
-  # plan). Pinned to EXACT versions on purpose, same reason as
-  # webview_flutter above: firebase_core 5.x needs Flutter >=3.27 /
-  # Dart ^3.6 and Android minSdk 24, and firebase_core 4.x needs
-  # Firebase Android BoM 34 (minSdk 23) — this project is Flutter
-  # 3.24.5 / Dart 3.5 / minSdk 21, so the 3.x line is the newest
-  # that fits. Resolved 19 Nov 2026: core 3.15.2 + database
-  # 11.3.10. When Flutter is upgraded, relax these to ^4.0.0 /
-  # ^12.0.0 and re-check minSdk. NOTE: adding these packages does
-  # NOT make calls work on its own — the Firebase project +
-  # google-services.json are still needed (see
-  # files/Calling-v2-Design.md §10). Without them the app builds
-  # and runs normally and calling honestly says "not set up yet".
-  firebase_core: 3.15.2
-  firebase_database: 11.3.10
 
 dev_dependencies:
   flutter_test:
