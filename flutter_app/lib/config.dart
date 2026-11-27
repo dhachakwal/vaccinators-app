@@ -9,8 +9,8 @@ class AppConfig {
 
   static const String appName = 'Vaccinators App';
   static const String district = 'EPI District Chakwal';
-  static const String versionName = '1.0.7';
-  static const int versionCode = 8;
+  static const String versionName = '1.0.8';
+  static const int versionCode = 9;
 
   // --- NEW backend (22 Nov 2026, Pak Eagle) — TEST BUILD ONLY.
   // Do NOT publish this version to version.json until the user
